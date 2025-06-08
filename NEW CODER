@@ -1,0 +1,147 @@
+import React, { useState, useEffect } from 'react';
+
+export default function BlockchainApp() {
+  const [chain, setChain] = useState<any[]>([
+    {
+      index: 0,
+      timestamp: Date.now(),
+      data: 'Genesis Block',
+      previousHash: '0',
+      hash: 'genesis_hash',
+    },
+  ]);
+  const [newData, setNewData] = useState('');
+  const [mining, setMining] = useState(false);
+  const [difficulty, setDifficulty] = useState(4);
+
+  const calculateHash = (index: number, timestamp: number, data: string, previousHash: string, nonce: number): string => {
+    const value = index + timestamp + data + previousHash + nonce;
+    return String(value.hashCode());
+  };
+
+  const proofOfWork = (index: number, timestamp: number, data: string, previousHash: string): { nonce: number; hash: string } => {
+    let nonce = 0;
+    while (true) {
+      const hash = calculateHash(index, timestamp, data, previousHash, nonce);
+      if (hash.substring(0, difficulty) === Array(difficulty + 1).join('0')) {
+        return { nonce, hash };
+      }
+      nonce++;
+    }
+  };
+
+  const addBlock = () => {
+    if (mining) return;
+
+    setMining(true);
+    setTimeout(() => {
+      const previousBlock = chain[chain.length - 1];
+      const index = previousBlock.index + 1;
+      const timestamp = Date.now();
+
+      const { nonce, hash } = proofOfWork(index, timestamp, newData, previousBlock.hash);
+
+      const newBlock = {
+        index,
+        timestamp,
+        data: newData,
+        previousHash: previousBlock.hash,
+        hash,
+        nonce,
+      };
+
+      setChain([...chain, newBlock]);
+      setNewData('');
+      setMining(false);
+    }, 1000);
+  };
+
+  String.prototype.hashCode = function(): number {
+    let hash = 0;
+    if (this.length == 0) {
+        return hash;
+    }
+    for (let i = 0; i < this.length; i++) {
+        let char = this.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return hash;
+  }
+
+  const isValidChain = (): boolean => {
+    for (let i = 1; i < chain.length; i++) {
+      const currentBlock = chain[i];
+      const previousBlock = chain[i - 1];
+
+      if (currentBlock.hash !== calculateHash(currentBlock.index, currentBlock.timestamp, currentBlock.data, currentBlock.previousHash, currentBlock.nonce)) {
+        return false;
+      }
+
+      if (currentBlock.previousHash !== previousBlock.hash) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    console.log('Chain validity:', isValidChain());
+  }, [chain]);
+
+  return (
+    <div className="bg-gray-100 min-h-screen p-8">
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">Simple Blockchain</h1>
+
+      <div className="mb-4">
+        <label htmlFor="data" className="block text-gray-700 text-sm font-bold mb-2">
+          New Data:
+        </label>
+        <input
+          type="text"
+          id="data"
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          value={newData}
+          onChange={(e) => setNewData(e.target.value)}
+          placeholder="Enter data for the new block"
+        />
+      </div>
+
+      <button
+        className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ${mining ? 'opacity-50 cursor-not-allowed' : ''}`}
+        onClick={addBlock}
+        disabled={mining}
+      >
+        {mining ? 'Mining...' : 'Add Block'}
+      </button>
+
+      <div className="mt-8">
+        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Blockchain:</h2>
+        {chain.map((block, index) => (
+          <div key={index} className="bg-white shadow-md rounded-lg p-4 mb-4">
+            <p className="text-gray-700">
+              <strong>Index:</strong> {block.index}
+            </p>
+            <p className="text-gray-700">
+              <strong>Timestamp:</strong> {new Date(block.timestamp).toLocaleString()}
+            </p>
+            <p className="text-gray-700">
+              <strong>Data:</strong> {block.data}
+            </p>
+            <p className="text-gray-700">
+              <strong>Previous Hash:</strong> {block.previousHash}
+            </p>
+            <p className="text-gray-700">
+              <strong>Hash:</strong> {block.hash}
+            </p>
+             {block.nonce !== undefined && (
+              <p className="text-gray-700">
+                <strong>Nonce:</strong> {block.nonce}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
